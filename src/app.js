@@ -31,6 +31,7 @@ app.get('/oauth/redirect', (req, res) => {
     }
 
     const scope = [
+        'add_payments',
         'modify_cart',
         'provide_shipping_rates',
     ].join(' ');
@@ -96,6 +97,34 @@ app.post('/cashier/event', verify_signature, (req, res) => {
     });
 });
 
+app.post('/payment/preauth', verify_signature, (req, res) => {
+    if (req.body.payment.value >= 100000) {
+        res.send({
+            success: false,
+            error: 'payment exceeds maximum value',
+        });
+    } else {
+        res.send({
+            success: true,
+            reference_id: 'payment-12345',
+        });
+    }
+});
+
+app.post('/payment/capture', verify_signature, (req, res) => {
+    res.send({
+        success: true,
+        reference_id: 'payment-12345',
+    });
+});
+
+app.post('/payment/refund', verify_signature, (req, res) => {
+    res.send({
+        success: true,
+        reference_id: 'payment-12345',
+    });
+});
+
 function handleEvent(req) {
     switch (req.body.event) {
         case 'initialize_checkout':
@@ -128,6 +157,16 @@ function handleInitializeCheckout(req) {
                 text: 'Discount 5%',
                 icon: 'https://via.placeholder.com/50x50.png',
                 click_hook: 'apply_discount',
+            },
+        },
+        {
+            type: 'APP_UPDATE_WIDGET',
+            data: {
+                name: 'my_payment_method',
+                type: 'app_hook',
+                position: 'payment_gateway',
+                text: 'Pay via the honor system',
+                click_hook: 'add_payment',
             },
         },
     ];
@@ -167,6 +206,18 @@ function handleAppHook(req) {
                         text: 'You\'ve already used the discount',
                         click_hook: 'already_used',
                         icon: 'https://via.placeholder.com/50x50.png',
+                    },
+                },
+            ];
+        case 'add_payment':
+            return [
+                {
+                    type: 'ADD_PAYMENT',
+                    data: {
+                        currency: req.body.order.currency,
+                        value: req.body.order.order_total,
+                        line_text: 'Payment via honor system',
+                        gateway_name: 'Honor System',
                     },
                 },
             ];

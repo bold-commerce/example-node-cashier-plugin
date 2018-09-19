@@ -50,7 +50,7 @@ describe('app', () => {
                     shop: 'example.myshopify.com',
                 })
                 .expect(302)
-                .expect('Location', 'https://cashier.boldcommerce.com/api/v1/shopify/example.myshopify.com/oauth/authorize?client_id=example-client-id&scope=modify_cart%20provide_shipping_rates&response_type=code');
+                .expect('Location', 'https://cashier.boldcommerce.com/api/v1/shopify/example.myshopify.com/oauth/authorize?client_id=example-client-id&scope=add_payments%20modify_cart%20provide_shipping_rates&response_type=code');
         });
     });
 
@@ -208,6 +208,16 @@ describe('app', () => {
                                 click_hook: 'apply_discount',
                             },
                         },
+                        {
+                            type: 'APP_UPDATE_WIDGET',
+                            data: {
+                                name: 'my_payment_method',
+                                type: 'app_hook',
+                                position: 'payment_gateway',
+                                text: 'Pay via the honor system',
+                                click_hook: 'add_payment',
+                            },
+                        },
                     ],
                 });
         });
@@ -272,6 +282,116 @@ describe('app', () => {
                             },
                         },
                     ],
+                });
+        });
+
+        it('responds with actions for hook: "add_payment"', () => {
+            return request(app)
+                .post('/cashier/event')
+                .send({
+                    event: 'app_hook',
+                    properties: {
+                        hook: 'add_payment',
+                    },
+                    order: {
+                        order_total: 500,
+                        currency: 'CAD',
+                    },
+                })
+                .expect(200)
+                .expect({
+                    success: true,
+                    actions: [
+                        {
+                            type: 'ADD_PAYMENT',
+                            data: {
+                                currency: 'CAD',
+                                value: 500,
+                                line_text: 'Payment via honor system',
+                                gateway_name: 'Honor System',
+                            },
+                        },
+                    ],
+                });
+        });
+    });
+
+    describe('POST /payment/preauth', () => {
+        it('responds with success for value below $1000', () => {
+            return request(app)
+                .post('/payment/preauth')
+                .send({
+                    order: {},
+                    payment: {
+                        reference_id: '',
+                        currency: 'CAD',
+                        value: 500,
+                    },
+                })
+                .expect(200)
+                .expect({
+                    success: true,
+                    reference_id: 'payment-12345',
+                });
+        });
+    });
+
+    describe('POST /payment/preauth', () => {
+        it('responds with failure for value above $1000', () => {
+            return request(app)
+                .post('/payment/preauth')
+                .send({
+                    order: {},
+                    payment: {
+                        reference_id: '',
+                        currency: 'CAD',
+                        value: 100000,
+                    },
+                })
+                .expect(200)
+                .expect({
+                    success: false,
+                    error: 'payment exceeds maximum value',
+                });
+        });
+    });
+
+    describe('POST /payment/capture', () => {
+        it('responds with success', () => {
+            return request(app)
+                .post('/payment/capture')
+                .send({
+                    order: {},
+                    payment: {
+                        reference_id: 'payment-12345',
+                        currency: 'CAD',
+                        value: 500,
+                    },
+                })
+                .expect(200)
+                .expect({
+                    success: true,
+                    reference_id: 'payment-12345',
+                });
+        });
+    });
+
+    describe('POST /payment/refund', () => {
+        it('responds with success', () => {
+            return request(app)
+                .post('/payment/refund')
+                .send({
+                    order: {},
+                    payment: {
+                        reference_id: 'payment-12345',
+                        currency: 'CAD',
+                        value: 500,
+                    },
+                })
+                .expect(200)
+                .expect({
+                    success: true,
+                    reference_id: 'payment-12345',
                 });
         });
     });
